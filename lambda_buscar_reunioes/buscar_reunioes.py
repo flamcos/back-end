@@ -15,13 +15,30 @@ def create_reunioes_table_if_not_exists(cur):
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 nome VARCHAR(255) NOT NULL,
                 data_hora DATETIME NOT NULL,
-                participantes TEXT
+                participantes TEXT,
+                data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP            
             )
         """)
     except Exception as e:
-        raise Exception(f"Erro ao criar tabela: {e}")
+        raise Exception(f"Erro ao criar tabela 'reunioes': {e}")
 
-def connect_db_and_ensure_table(db_host, db_user, db_pass, db_name, db_port):
+def create_avaliacoes_table_if_not_exists(cur):
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS avaliacoes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                reuniao_id INT NOT NULL,
+                nota INT NOT NULL CHECK (nota BETWEEN 1 AND 5),
+                descricao TEXT,
+                email VARCHAR(255) NOT NULL,
+                data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (reuniao_id) REFERENCES reunioes(id)
+            )
+        """)
+    except Exception as e:
+        raise Exception(f"Erro ao criar tabela 'avaliacoes': {e}")
+
+def connect_db_and_ensure_tables(db_host, db_user, db_pass, db_name, db_port):
     try:
         conn = pymysql.connect(
             host=db_host,
@@ -31,11 +48,17 @@ def connect_db_and_ensure_table(db_host, db_user, db_pass, db_name, db_port):
             port=db_port,
             connect_timeout=5
         )
+    except Exception as e:
+        raise Exception(f"Erro ao conectar ao banco de dados: {e}")
+
+    try:
         with conn.cursor() as cur:
             create_reunioes_table_if_not_exists(cur)
-        return conn
+            create_avaliacoes_table_if_not_exists(cur)
     except Exception as e:
-        raise Exception(f"Erro ao conectar ou criar tabela: {e}")
+        conn.close()
+        raise
+    return conn
 
 def lambda_handler(event, context):
     secret_arn = os.environ['DB_SECRET_ARN']

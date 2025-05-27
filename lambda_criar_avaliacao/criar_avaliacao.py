@@ -9,41 +9,55 @@ def get_db_credentials(secret_arn, region):
     return json.loads(secret['SecretString'])
 
 def create_reunioes_table_if_not_exists(cur):
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS reunioes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            nome VARCHAR(255) NOT NULL,
-            data_hora DATETIME NOT NULL,
-            participantes TEXT
-        )
-    """)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS reunioes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nome VARCHAR(255) NOT NULL,
+                data_hora DATETIME NOT NULL,
+                participantes TEXT,
+                data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP            
+            )
+        """)
+    except Exception as e:
+        raise Exception(f"Erro ao criar tabela 'reunioes': {e}")
 
 def create_avaliacoes_table_if_not_exists(cur):
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS avaliacoes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            reuniao_id INT NOT NULL,
-            nota INT NOT NULL CHECK (nota BETWEEN 1 AND 5),
-            descricao TEXT,
-            email VARCHAR(255) NOT NULL,
-            data_avaliacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (reuniao_id) REFERENCES reunioes(id)
-        )
-    """)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS avaliacoes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                reuniao_id INT NOT NULL,
+                nota INT NOT NULL CHECK (nota BETWEEN 1 AND 5),
+                descricao TEXT,
+                email VARCHAR(255) NOT NULL,
+                data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (reuniao_id) REFERENCES reunioes(id)
+            )
+        """)
+    except Exception as e:
+        raise Exception(f"Erro ao criar tabela 'avaliacoes': {e}")
 
 def connect_db_and_ensure_tables(db_host, db_user, db_pass, db_name, db_port):
-    conn = pymysql.connect(
-        host=db_host,
-        user=db_user,
-        password=db_pass,
-        database=db_name,
-        port=db_port,
-        connect_timeout=5
-    )
-    with conn.cursor() as cur:
-        create_reunioes_table_if_not_exists(cur)
-        create_avaliacoes_table_if_not_exists(cur)
+    try:
+        conn = pymysql.connect(
+            host=db_host,
+            user=db_user,
+            password=db_pass,
+            database=db_name,
+            port=db_port,
+            connect_timeout=5
+        )
+    except Exception as e:
+        raise Exception(f"Erro ao conectar ao banco de dados: {e}")
+
+    try:
+        with conn.cursor() as cur:
+            create_reunioes_table_if_not_exists(cur)
+            create_avaliacoes_table_if_not_exists(cur)
+    except Exception as e:
+        conn.close()
+        raise
     return conn
 
 def lambda_handler(event, context):
